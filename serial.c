@@ -14,6 +14,12 @@ extern "C"{
 
 #include <util/setbaud.h>
 
+void serial_init(void) {
+	uart_out = fdevopen(uart_putChar, uart_getChar);
+	stdout = stdin = uart_out;
+    uart_init();
+}
+
 void uart_init(void) {
     UBRR0H = UBRRH_VALUE;
     UBRR0L = UBRRL_VALUE;
