@@ -1,18 +1,59 @@
 
 #include <serial.h>
+#include <math.h>
+#include <string.h>
 
 #ifndef F_CPU
 #       error Must define F_CPU or pass it as compiler argument
 #endif
 
-extern "C"{
- FILE * uart_out;
-}
 
-#include <stdio.h>
-#define BAUD 9600
+#ifdef __cplusplus
+extern "C"{
+#endif
+	FILE * uart_out;
+#ifdef __cplusplus
+}
+#endif
+
+//~ #ifndef BAUD
+//~ #define BAUD 9600
+//~ #endif
 
 #include <util/setbaud.h>
+
+
+#if defined (__AVR_ATmega328P__) || defined (__AVR_ATmega328__)
+	#define kUBRRL	UBRR0L
+	#define kUBRRH	UBRR0H
+	#define kUCSRA	UCSR0A
+	#define kUCSRB	UCSR0B
+	#define kUCSRC	UCSR0C
+	#define kUCSZ1	UCSZ01
+	#define kU2X	U2X0
+	#define kUCSZ0	UCSZ00
+	#define kRXEN	RXEN0
+	#define kTXEN	TXEN0
+	#define kUDRE	UDRE0
+	#define kRXC	RXC0
+	#define kUDR	UDR0
+#elif defined (__AVR_ATmega16__)
+	#define kUBRRL	UBRRL
+	#define kUBRRH	UBRRH
+	#define kUCSRA	UCSRA
+	#define kUCSRB	UCSRB
+	#define kUCSRC	UCSRC
+	#define kUCSZ1	UCSZ1
+	#define kU2X	U2X
+	#define kUCSZ0	UCSZ0
+	#define kRXEN	RXEN
+	#define kTXEN	TXEN
+	#define kUDRE	UDRE
+	#define kRXC	RXC
+	#define kUDR	UDR	
+#else
+	#error No known CPU defined
+#endif
 
 void serial_init(void) {
 	uart_out = fdevopen(uart_putChar, uart_getChar);
@@ -21,36 +62,41 @@ void serial_init(void) {
 }
 
 void uart_init(void) {
-    UBRR0H = UBRRH_VALUE;
-    UBRR0L = UBRRL_VALUE;
+    kUBRRH = UBRRH_VALUE;
+    kUBRRL = UBRRL_VALUE;
 
 #if USE_2X
-    UCSR0A |= _BV(U2X0);
+    kUCSRA |= _BV(kU2X);
 #else
-    UCSR0A &= ~(_BV(U2X0));
+    kUCSRA &= ~(_BV(kU2X));
 #endif
 
-    UCSR0C = _BV(UCSZ01) | _BV(UCSZ00); // 8-bit data  
-    UCSR0B = _BV(RXEN0) | _BV(TXEN0);   // Enable RX and TX 
+	// 8-bit data
+#if defined (__AVR_ATmega16__)
+    kUCSRC = _BV(URSEL) | _BV(kUCSZ1) | _BV(kUCSZ0); 
+#else
+    kUCSRC = _BV(kUCSZ1) | _BV(kUCSZ0);   
+#endif	
+    kUCSRB = _BV(kRXEN) | _BV(kTXEN);   // Enable RX and TX 
 }
 
 int uart_putChar(char c, FILE *stream) {
     if (c == '\n') {
         uart_putChar('\r', stream);
     }
-    loop_until_bit_is_set(UCSR0A, UDRE0);
-    UDR0 = c;
+    loop_until_bit_is_set(kUCSRA, kUDRE);
+    kUDR = c;
 	return 0;
 }
 
 int uart_getChar(FILE *stream) {
-    loop_until_bit_is_set(UCSR0A, RXC0); // Wait until data exists. 
-    return UDR0;
+    loop_until_bit_is_set(kUCSRA, kRXC); // Wait until data exists. 
+    return kUDR;
 }
 
 
 
-char* ftoa(double val, char * s, uint8_t base = 10, uint8_t float_dig = 1, uint8_t integ_dig = 0) {
+char* dftoa(double val, char * s, uint8_t base, uint8_t float_dig, uint8_t integ_dig) {
 	if (base < 2) base = 10;
 	char buf[24 * sizeof(long) + 1]; // Assumes 8-bit chars plus zero byte.
 	char *str = &buf[sizeof(buf) - 1];
@@ -59,7 +105,8 @@ char* ftoa(double val, char * s, uint8_t base = 10, uint8_t float_dig = 1, uint8
 	*str = '\0';
 	uint8_t nLen = 0;
 	uint8_t nFloatLen = 0;
-	for (int i = 0; i<2; i++) {
+	int i;
+	for (i = 0; i<2; i++) {
 		uint32_t num = (i==0)?fract:integral;
 		do {
 			unsigned long m = num;
@@ -84,7 +131,7 @@ char* ftoa(double val, char * s, uint8_t base = 10, uint8_t float_dig = 1, uint8
 	return s;
 }
 
-char* itoa(long val, char * s, uint8_t base = 10, uint8_t minimum_digits = 0) {
+char* ditoa(long val, char * s, uint8_t base, uint8_t minimum_digits) {
 	char buf[16 * sizeof(long) + 1]; // Assumes 8-bit chars plus zero byte.
 	char *str = &buf[sizeof(buf) - 1];
 	*str = '\0';
