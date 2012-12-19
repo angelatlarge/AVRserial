@@ -37,7 +37,7 @@ extern "C"{
 	#define kUDRE	UDRE0
 	#define kRXC	RXC0
 	#define kUDR	UDR0
-#elif defined (__AVR_ATmega16__)
+#elif defined (__AVR_ATmega16__) || defined (__AVR_ATmega32__)
 	#define kUBRRL	UBRRL
 	#define kUBRRH	UBRRH
 	#define kUCSRA	UCSRA
@@ -51,6 +51,7 @@ extern "C"{
 	#define kUDRE	UDRE
 	#define kRXC	RXC
 	#define kUDR	UDR	
+	#define USE_URSEL
 #else
 	#error No known CPU defined
 #endif
@@ -72,11 +73,11 @@ void uart_init(void) {
 #endif
 
 	// 8-bit data
-#if defined (__AVR_ATmega16__)
-    kUCSRC = _BV(URSEL) | _BV(kUCSZ1) | _BV(kUCSZ0); 
-#else
-    kUCSRC = _BV(kUCSZ1) | _BV(kUCSZ0);   
-#endif	
+#	if defined (USE_URSEL)
+		kUCSRC = _BV(URSEL) | _BV(kUCSZ1) | _BV(kUCSZ0); 
+#	else
+		kUCSRC = _BV(kUCSZ1) | _BV(kUCSZ0);   
+#	endif	
     kUCSRB = _BV(kRXEN) | _BV(kTXEN);   // Enable RX and TX 
 }
 
@@ -96,60 +97,3 @@ int uart_getChar(FILE *stream) {
 
 
 
-char* dftoa(double val, char * s, uint8_t base, uint8_t float_dig, uint8_t integ_dig) {
-	if (base < 2) base = 10;
-	char buf[24 * sizeof(long) + 1]; // Assumes 8-bit chars plus zero byte.
-	char *str = &buf[sizeof(buf) - 1];
-	uint32_t integral = (uint32_t)val;
-	uint32_t fract = (uint32_t)((val - integral) * pow(10, float_dig));
-	*str = '\0';
-	uint8_t nLen = 0;
-	uint8_t nFloatLen = 0;
-	int i;
-	for (i = 0; i<2; i++) {
-		uint32_t num = (i==0)?fract:integral;
-		do {
-			unsigned long m = num;
-			num /= base;
-			char c = m - base * num;
-			*--str = c < 10 ? c + '0' : c + 'A' - 10;
-			nLen++;
-		} while (
-				num 									// Still non-zero
-			|| 
-				(( nLen < float_dig ) && !i)			// Floating point precision has not been reached
-			||
-				(( nLen-nFloatLen < integ_dig ) && i)	// Integral precision has not been reached
-			);
-		if (i==0) {
-			*--str = '.';
-			nFloatLen = ++nLen;
-		}			
-	}
-	s[nLen] = '\0';
-	memcpy(s, str, nLen);
-	return s;
-}
-
-char* ditoa(long val, char * s, uint8_t base, uint8_t minimum_digits) {
-	char buf[16 * sizeof(long) + 1]; // Assumes 8-bit chars plus zero byte.
-	char *str = &buf[sizeof(buf) - 1];
-	*str = '\0';
-	long n = val;
-
-	// prevent crash if called with base == 1
-	if (base < 2) base = 10;
-	uint8_t nLen = 0;
-	do {
-		unsigned long m = n;
-		n /= base;
-		char c = m - base * n;
-		*--str = c < 10 ? c + '0' : c + 'A' - 10;
-		nLen++;
-	} while(n || (nLen<minimum_digits));
-
-	s[nLen] = '\0';
-	memcpy(s, str, nLen);
-	return s;
-
-}
