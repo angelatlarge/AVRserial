@@ -23,7 +23,7 @@ extern "C"{
 #include <util/setbaud.h>
 
 
-#if defined (__AVR_ATmega328P__) || defined (__AVR_ATmega328__)
+#if defined (__AVR_ATmega328P__) || defined (__AVR_ATmega328__) || defined (__AVR_ATmega644__) || defined (__AVR_ATmega644A__)
 	#define kUBRRL	UBRR0L
 	#define kUBRRH	UBRR0H
 	#define kUCSRA	UCSR0A
